@@ -23,6 +23,7 @@ __IO uint32_t            g_dutyCycle    = 0;
 __IO uint32_t            g_frequency    = 0;
 
 __IO bool                g_bConversionInProgress = false;
+__IO uint8_t 		 ReadValue;
 
 /* Private function prototypes -----------------------------------------------*/
 static void SetupSystemClock(void);
@@ -84,8 +85,19 @@ int main(void)
         else
         {
             // Interrupt handler should have disabled PWM input capture
-            frequency_hz = 0;
-            dutyCycle_percent_div100 = 0;
+	    // If output is high, then this is likely 100% duty cycle (no edges for timer to capture)
+	    ReadValue = HAL_GPIO_ReadPin(GPIO_PORT, GPIO_PIN_CHANNEL2);
+	    if (ReadValue)
+	    {
+	    	// If it's low then it is 0% duty cycle (again... no edges for timer to capture)
+            	frequency_hz = 0;
+            	dutyCycle_percent_div100 = 10000;
+	    }
+	    else
+            {
+            	frequency_hz = 0;
+            	dutyCycle_percent_div100 = 0;
+	    }
         }
         msg[0] = (frequency_hz >> 24) & 0xff;
         msg[1] = (frequency_hz >> 16) & 0xff;
@@ -189,6 +201,13 @@ void SetupPwmInputCapture(void)
         /* Configuration Error */
         ErrorHandler();
     }
+    GPIO_InitTypeDef   GPIO_InitStructure;
+
+    /* Configure PA.00 pin as input floating */
+    GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStructure.Pull = GPIO_NOPULL;
+    GPIO_InitStructure.Pin = GPIO_PIN_CHANNEL2;
+    //HAL_GPIO_Init(GPIO_PORT, &GPIO_InitStructure);
 }
 
 void SetupPwmTest()
